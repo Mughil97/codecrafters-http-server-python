@@ -1,4 +1,5 @@
 # Uncomment this to pass the first stage
+import gzip
 import re
 import socket
 import threading
@@ -33,8 +34,15 @@ def handle_client(conn) -> None:
             conn.close()
         if compile.match(message_parts["url"]):
             echo_message = message_parts["url"].split("/")[2]
-            headers = f"Content-Type: text/plain\r\nContent-Length: {len(echo_message)}"
-            response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{echo_message}"
+            if message_parts["headers"].get("Accept-Encoding") == "gzip":
+                echo_message = gzip.compress(echo_message.encode("utf-8"))
+                headers = f"Content-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: {len(echo_message)}"
+                response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{echo_message}"
+            else:
+                headers = (
+                    f"Content-Type: text/plain\r\nContent-Length: {len(echo_message)}"
+                )
+                response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{echo_message}"
             conn.sendall(response.encode("utf-8"))
             conn.close()
         if message_parts["url"] == "/user-agent":
