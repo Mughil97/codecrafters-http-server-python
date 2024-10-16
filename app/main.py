@@ -44,17 +44,27 @@ def handle_client(conn) -> None:
             conn.sendall(response.encode("utf-8"))
             conn.close()
         if file_compile.match(message_parts["url"]):
-            try:
-                file_content = open(
+            if message_parts["verb"] == "GET":
+                try:
+                    file_content = open(
+                        f"/tmp/data/codecrafters.io/http-server-tester/{message_parts["url"].split("/")[2]}",
+                        "rb",
+                    ).read()
+                    headers = f"Content-Type: application/octet-stream\r\nContent-Length: {len(file_content)}"
+                    response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{file_content.decode("utf-8")}"
+                    conn.sendall(response.encode("utf-8"))
+                    conn.close()
+                except FileNotFoundError:
+                    conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
+                    conn.close()
+            elif message_parts["verb"] == "POST":
+                with open(
                     f"/tmp/data/codecrafters.io/http-server-tester/{message_parts["url"].split("/")[2]}",
-                    "rb",
-                ).read()
-                headers = f"Content-Type: application/octet-stream\r\nContent-Length: {len(file_content)}"
-                response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{file_content.decode("utf-8")}"
-                conn.sendall(response.encode("utf-8"))
-                conn.close()
-            except FileNotFoundError:
-                conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
+                    "w",
+                ) as f:
+                    f.write(message_parts["body"])
+                    conn.sendall(b"HTTP/1.1 201 Created\r\n\r\n")
+                    conn.close()
         else:
             conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
