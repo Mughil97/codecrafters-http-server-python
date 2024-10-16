@@ -13,7 +13,7 @@ def main():
     conn, _ = server_socket.accept()  # wait for client
     data = conn.recv(1024).decode("utf-8")
     with conn:
-        message_parts = extract_http_message(data)
+        message_parts = parse_http_message(data)
 
         if message_parts["url"] == "/":
             conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
@@ -24,20 +24,35 @@ def main():
             response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{echo_message}"
             conn.sendall(response.encode("utf-8"))
             conn.close()
+        if message_parts["url"] == "/user-agent":
+            message = message_parts["headers"]["User-Agent"]
+            headers = f"Content-Type: text/plain\r\nContent-Length: {len(message)}"
+            response = f"HTTP/1.1 200 OK\r\n{headers}\r\n\r\n{message}"
+            conn.sendall(response.encode("utf-8"))
+            conn.close()
         else:
             conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
 
-def extract_http_message(http_packet) -> dict:
-    http_lines = http_packet.split("\r\n")
-    start_line_items = http_lines[0].split(" ")
+def parse_http_message(data) -> dict:
+    message_parts = data.split("\r\n")
+
     return {
-        "verb": start_line_items[0],
-        "url": start_line_items[1],
-        "version": start_line_items[2],
-        "headers": http_lines[1],
-        "body": http_lines[3],
+        "verb": message_parts[0].split(" ")[0],
+        "url": message_parts[0].split(" ")[1],
+        "http_version": message_parts[0].split(" ")[2],
+        "headers": parse_http_headers(message_parts[1:-2]),
+        "body": message_parts[-1],
     }
+
+
+def parse_http_headers(header_part) -> dict:
+    headers = {}
+    for i in header_part:
+        key_value = i.split(": ")
+        headers[key_value[0]] = key_value[1]
+
+    return headers
 
 
 if __name__ == "__main__":
