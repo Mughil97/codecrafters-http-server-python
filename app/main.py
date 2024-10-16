@@ -1,6 +1,7 @@
 # Uncomment this to pass the first stage
 import re
 import socket
+import threading
 
 compile = re.compile(r"\/echo\/([a-z0-9])+")
 
@@ -9,8 +10,19 @@ def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
     print("Logs from your program will appear here!")
 
-    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    conn, _ = server_socket.accept()  # wait for client
+    try:
+        server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
+        server_socket.listen()
+        while True:
+            conn, _ = server_socket.accept()  # wait for client
+            threading.Thread(target=handle_client, args=[conn]).start()
+    except KeyboardInterrupt:
+        print("Stopping")
+    finally:
+        server_socket.close()
+
+
+def handle_client(conn) -> None:
     data = conn.recv(1024).decode("utf-8")
     with conn:
         message_parts = parse_http_message(data)
